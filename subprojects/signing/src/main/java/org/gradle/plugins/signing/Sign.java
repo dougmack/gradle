@@ -33,7 +33,9 @@ import org.gradle.api.artifacts.PublishArtifact;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.DefaultDomainObjectSet;
 import org.gradle.api.internal.file.FileCollectionFactory;
+import org.gradle.api.publish.Publication;
 import org.gradle.api.publish.PublicationArtifact;
+import org.gradle.api.publish.internal.PublicationArtifactSet;
 import org.gradle.api.publish.internal.PublicationInternal;
 import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.Input;
@@ -237,24 +239,27 @@ public class Sign extends DefaultTask implements SignatureSpec {
     }
 
     /**
-     * Configures the task to sign every artifact of the given publication
+     * Configures the task to sign every artifact of the given publications
      */
-    void sign(PublicationInternal<?> publication) {
-        publication.getPublishableArtifacts().all(
-            new Action<PublicationArtifact>() {
-                @Override
-                public void execute(PublicationArtifact artifact) {
-                    if (!getSignatureFiles().contains(artifact.getFile())) {
-                        signArtifact(artifact);
+    public void sign(Publication... publications) {
+        for (Publication publication : publications) {
+            PublicationArtifactSet<?> publishableArtifacts = ((PublicationInternal<?>) publication).getPublishableArtifacts();
+            publishableArtifacts.all(
+                new Action<PublicationArtifact>() {
+                    @Override
+                    public void execute(PublicationArtifact artifact) {
+                        if (!getSignatureFiles().contains(artifact.getFile())) {
+                            signArtifact(artifact);
+                        }
                     }
+                });
+            publishableArtifacts.whenObjectRemoved(new Action<PublicationArtifact>() {
+                @Override
+                public void execute(final PublicationArtifact artifact) {
+                    removeSignature(artifact);
                 }
             });
-        publication.getPublishableArtifacts().whenObjectRemoved(new Action<PublicationArtifact>() {
-            @Override
-            public void execute(final PublicationArtifact artifact) {
-                removeSignature(artifact);
-            }
-        });
+        }
     }
 
     private void addSignature(Signature signature) {
